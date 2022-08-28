@@ -1,5 +1,5 @@
 mdc.ripple.MDCRipple.attachTo(document.querySelector(".mdc-button"));
-
+const worker = new Worker("./worker.js");
 const configuration = {
   iceServers: [
     {
@@ -18,7 +18,7 @@ let roomDialog = null;
 async function init() {
   document.querySelector("#localFile").addEventListener("change", selectFile);
   document.querySelector("#shareBtn").addEventListener("click", createRoom);
-  document.querySelector("#joinBtn").addEventListener("click", joinRoom);
+  // document.querySelector("#joinBtn").addEventListener("click", joinRoom);
   roomDialog = new mdc.dialog.MDCDialog(document.querySelector("#room-dialog"));
   if (window.location.hash) {
     const roomId = window.location.hash.slice(1);
@@ -53,17 +53,13 @@ function sendFile() {
 function selectFile(e) {
   file = e.target.files[0];
 }
-const downloadFile = (blob, fileName) => {
-  const a = document.createElement("a");
-  const url = window.URL.createObjectURL(blob);
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  window.URL.revokeObjectURL(url);
-  a.remove();
-  setTimeout(() => {
-    window.location.href = window.location.origin;
-  }, 10);
+const downloadFile = (fileName) => {
+  worker.postMessage("download");
+  worker.addEventListener("message", (event) => {
+    const stream = event.data.stream();
+    const fileStream = streamSaver.createWriteStream(fileName);
+    stream.pipeTo(fileStream);
+  });
 };
 // const createAndSendOffer = async () => {
 //   const offer = await peerConnection.createOffer();
@@ -104,16 +100,16 @@ const createPeerConnection = (candidateCollection) => {
       const { data } = event;
       try {
         if (data !== END_OF_FILE_MESSAGE) {
-          receivedBuffers.push(data);
+          worker.postMessage(data);
         } else {
-          const arrayBuffer = receivedBuffers.reduce((acc, arrayBuffer) => {
-            const tmp = new Uint8Array(acc.byteLength + arrayBuffer.byteLength);
-            tmp.set(new Uint8Array(acc), 0);
-            tmp.set(new Uint8Array(arrayBuffer), acc.byteLength);
-            return tmp;
-          }, new Uint8Array());
-          const blob = new Blob([arrayBuffer]);
-          downloadFile(blob, channel.label);
+          // const arrayBuffer = receivedBuffers.reduce((acc, arrayBuffer) => {
+          //   const tmp = new Uint8Array(acc.byteLength + arrayBuffer.byteLength);
+          //   tmp.set(new Uint8Array(acc), 0);
+          //   tmp.set(new Uint8Array(arrayBuffer), acc.byteLength);
+          //   return tmp;
+          // }, new Uint8Array());
+          // const blob = new Blob([arrayBuffer]);
+          downloadFile(channel.label);
           channel.close();
         }
       } catch (err) {
@@ -148,7 +144,7 @@ function registerPeerConnectionListeners() {
 
 async function createRoom() {
   document.querySelector("#shareBtn").disabled = true;
-  document.querySelector("#joinBtn").disabled = true;
+  // document.querySelector("#joinBtn").disabled = true;
   const db = firebase.firestore();
   const roomId = genId(7);
   const roomRef = await db.collection("rooms").doc(roomId);
@@ -196,7 +192,7 @@ async function createRoom() {
 
 function joinRoom() {
   document.querySelector("#shareBtn").disabled = true;
-  document.querySelector("#joinBtn").disabled = true;
+  // document.querySelector("#joinBtn").disabled = true;
 
   document.querySelector("#confirmJoinBtn").addEventListener(
     "click",
