@@ -15,6 +15,8 @@ const END_OF_FILE_MESSAGE = "EOF";
 let peerConnection = null;
 let roomId = null;
 let roomDialog = null;
+let downloadPercent = 0;
+let uploadPercent = 0;
 async function init() {
   document.querySelector("#localFile").addEventListener("change", selectFile);
   document.querySelector("#shareBtn").addEventListener("click", createRoom);
@@ -43,10 +45,21 @@ function sendFile() {
 
     channel.onopen = async () => {
       const arrayBuffer = await file.arrayBuffer();
+      const totalSize = file.size;
       for (let i = 0; i < arrayBuffer.byteLength; i += MAXIMUM_MESSAGE_SIZE) {
-        channel.send(arrayBuffer.slice(i, i + MAXIMUM_MESSAGE_SIZE));
+        uploadPercent = (i * 100) / totalSize;
+        channel.send(
+          JSON.stringify({
+            value: arrayBuffer.slice(i, i + MAXIMUM_MESSAGE_SIZE),
+            totalSize,
+            processedSize: i,
+          })
+        );
       }
-      channel.send(END_OF_FILE_MESSAGE);
+      channel.send(
+        JSON.stringify({ done: true, fileName: file.name, totalSize })
+      );
+      hangUp();
     };
   }
 }
@@ -56,20 +69,13 @@ function selectFile(e) {
 const downloadFile = (fileName) => {
   worker.postMessage("download");
   worker.addEventListener("message", (event) => {
+    console.log("download stream====>>", event);
     const stream = event.data.stream();
     const fileStream = streamSaver.createWriteStream(fileName);
     stream.pipeTo(fileStream);
   });
 };
-// const createAndSendOffer = async () => {
-//   const offer = await peerConnection.createOffer();
-//   await peerConnection.setLocalDescription(offer);
 
-//   sendMessage({
-//     message_type: MESSAGE_TYPE.SDP,
-//     content: offer,
-//   });
-// };
 const createPeerConnection = (candidateCollection) => {
   const pc = new RTCPeerConnection(configuration);
 
@@ -95,22 +101,18 @@ const createPeerConnection = (candidateCollection) => {
     const { channel } = event;
     channel.binaryType = "arraybuffer";
 
-    const receivedBuffers = [];
     channel.onmessage = async (event) => {
       const { data } = event;
       try {
-        if (data !== END_OF_FILE_MESSAGE) {
-          worker.postMessage(data);
+        if (data.toString().includes("done")) {
+          const parsed = JSON.parse(data);
+          const fileName = parsed.fileName;
+          downloadFile(fileName);
         } else {
-          // const arrayBuffer = receivedBuffers.reduce((acc, arrayBuffer) => {
-          //   const tmp = new Uint8Array(acc.byteLength + arrayBuffer.byteLength);
-          //   tmp.set(new Uint8Array(acc), 0);
-          //   tmp.set(new Uint8Array(arrayBuffer), acc.byteLength);
-          //   return tmp;
-          // }, new Uint8Array());
-          // const blob = new Blob([arrayBuffer]);
-          downloadFile(channel.label);
-          channel.close();
+          const parsedData = JSON.parse(data);
+          downloadPercent =
+            (parsedData.processedSize * 100) / parsedData.totalSize;
+          worker.postMessage(data);
         }
       } catch (err) {
         console.log("File transfer failed");
@@ -129,6 +131,11 @@ function registerPeerConnectionListeners() {
 
   peerConnection.addEventListener("connectionstatechange", () => {
     console.log(`Connection state change: ${peerConnection.connectionState}`);
+    if (
+      ["failed", "disconnected"].indexOf(peerConnection.connectionState) !== -1
+    ) {
+      document.location.href = document.location.origin;
+    }
   });
 
   peerConnection.addEventListener("signalingstatechange", () => {
@@ -140,6 +147,31 @@ function registerPeerConnectionListeners() {
       `ICE connection state change: ${peerConnection.iceConnectionState}`
     );
   });
+}
+async function hangUp() {
+  if (peerConnection) {
+    peerConnection.close();
+  }
+
+  document.querySelector("#shareBtn").disabled = false;
+  document.querySelector("#currentRoom").innerText = "";
+
+  // Delete room on hangup
+  if (roomId) {
+    const db = firebase.firestore();
+    const roomRef = db.collection("rooms").doc(roomId);
+    const calleeCandidates = await roomRef.collection("calleeCandidates").get();
+    calleeCandidates.forEach(async (candidate) => {
+      await candidate.delete();
+    });
+    const callerCandidates = await roomRef.collection("callerCandidates").get();
+    callerCandidates.forEach(async (candidate) => {
+      await candidate.delete();
+    });
+    await roomRef.delete();
+  }
+
+  document.location.href = document.location.origin;
 }
 
 async function createRoom() {
