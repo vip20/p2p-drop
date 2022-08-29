@@ -48,6 +48,9 @@ function sendFile() {
       const totalSize = file.size;
       for (let i = 0; i < arrayBuffer.byteLength; i += MAXIMUM_MESSAGE_SIZE) {
         uploadPercent = (i * 100) / totalSize;
+        document.querySelector(
+          "#progress"
+        ).innerText = `Upload Progress: ${parseInt(downloadPercent)}%`;
         channel.send(
           JSON.stringify({
             value: arrayBuffer.slice(i, i + MAXIMUM_MESSAGE_SIZE),
@@ -69,7 +72,6 @@ function selectFile(e) {
 const downloadFile = (fileName) => {
   worker.postMessage("download");
   worker.addEventListener("message", (event) => {
-    console.log("download stream====>>", event);
     const stream = event.data.stream();
     const fileStream = streamSaver.createWriteStream(fileName);
     stream.pipeTo(fileStream);
@@ -112,6 +114,9 @@ const createPeerConnection = (candidateCollection) => {
           const parsedData = JSON.parse(data);
           downloadPercent =
             (parsedData.processedSize * 100) / parsedData.totalSize;
+          document.querySelector(
+            "#progress"
+          ).innerText = `Download Progress: ${parseInt(downloadPercent)}%`;
           worker.postMessage(data);
         }
       } catch (err) {
