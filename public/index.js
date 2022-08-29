@@ -1,4 +1,4 @@
-mdc.ripple.MDCRipple.attachTo(document.querySelector(".mdc-button"));
+// mdc.ripple.MDCRipple.attachTo(document.querySelector(".mdc-button"));
 const worker = new Worker("./worker.js");
 const configuration = {
   iceServers: [
@@ -14,19 +14,66 @@ const END_OF_FILE_MESSAGE = "EOF";
 
 let peerConnection = null;
 let roomId = null;
-let roomDialog = null;
 let downloadPercent = 0;
 let uploadPercent = 0;
+let progressDOM = null;
+let titleDOM = null;
+let currentRoomDOM = null;
+let dropAreaDOM = null;
+let progressHeaderDOM = null;
+
 async function init() {
+  progressDOM = document.querySelector("#progress-container");
+  progressDOM.style.display = "none";
+
+  progressHeaderDOM = document.querySelector(".progress_header");
+
+  titleDOM = document.querySelector("#post-title");
+
+  currentRoomDOM = document.querySelector("#current-room");
+  currentRoomDOM.style.display = "none";
+
+  dropAreaDOM = document.querySelector("#file-picker-container");
+
   document.querySelector("#localFile").addEventListener("change", selectFile);
-  document.querySelector("#shareBtn").addEventListener("click", createRoom);
+  // document.querySelector("#shareBtn").addEventListener("click", createRoom);
   // document.querySelector("#joinBtn").addEventListener("click", joinRoom);
-  roomDialog = new mdc.dialog.MDCDialog(document.querySelector("#room-dialog"));
+  // roomDialog = new mdc.dialog.MDCDialog(document.querySelector("#room-dialog"));
+
+  const droparea = document.querySelector(".droparea");
+  const active = () => droparea.classList.add("active-border");
+  const inactive = () => droparea.classList.remove("active-border");
+  const prevents = (e) => e.preventDefault();
+  ["dragenter", "dragover", "dragleave", "drop"].forEach((evtName) => {
+    droparea.addEventListener(evtName, prevents);
+  });
+  ["dragenter", "dragover"].forEach((evtName) => {
+    droparea.addEventListener(evtName, active);
+  });
+  ["dragleave", "drop"].forEach((evtName) => {
+    droparea.addEventListener(evtName, inactive);
+  });
+  droparea.addEventListener("drop", handleDrop);
+  droparea.addEventListener("click", () => {
+    document.querySelector("#localFile").click();
+  });
+
   if (window.location.hash) {
+    titleDOM.innerText = "Download!";
+    dropAreaDOM.style.display = "none";
     const roomId = window.location.hash.slice(1);
     await joinRoomById(roomId);
+  } else {
+    titleDOM.innerText = "Upload!";
+    dropAreaDOM.style.display = "block";
   }
 }
+const handleDrop = (e) => {
+  if (e.dataTransfer.files) {
+    file = e.dataTransfer.files[0];
+    createRoom();
+  }
+};
 function genId(size) {
   var result = "";
   var characters =
@@ -47,10 +94,14 @@ function sendFile() {
       const arrayBuffer = await file.arrayBuffer();
       const totalSize = file.size;
       for (let i = 0; i < arrayBuffer.byteLength; i += MAXIMUM_MESSAGE_SIZE) {
-        uploadPercent = (i * 100) / totalSize;
-        document.querySelector(
-          "#progress"
-        ).innerText = `Upload Progress: ${parseInt(downloadPercent)}%`;
+        uploadPercent = Math.round((i * 100) / totalSize);
+        progressHeaderDOM.style.setProperty(
+          "--progress-width",
+          `${uploadPercent}%`
+        );
+        progressHeaderDOM.querySelector(
+          "#progress-percentage"
+        ).innerText = `${uploadPercent}%`;
         channel.send(
           JSON.stringify({
             value: arrayBuffer.slice(i, i + MAXIMUM_MESSAGE_SIZE),
@@ -68,6 +119,7 @@ function sendFile() {
 }
 function selectFile(e) {
   file = e.target.files[0];
+  createRoom();
 }
 const downloadFile = (fileName) => {
   worker.postMessage("download");
@@ -80,10 +132,6 @@ const downloadFile = (fileName) => {
 
 const createPeerConnection = (candidateCollection) => {
   const pc = new RTCPeerConnection(configuration);
-
-  //   pc.onnegotiationneeded = async () => {
-  //     await createAndSendOffer();
-  //   };
 
   pc.onicecandidate = (iceEvent) => {
     if (!iceEvent.candidate) {
@@ -112,11 +160,17 @@ const createPeerConnection = (candidateCollection) => {
           downloadFile(fileName);
         } else {
           const parsedData = JSON.parse(data);
-          downloadPercent =
-            (parsedData.processedSize * 100) / parsedData.totalSize;
-          document.querySelector(
-            "#progress"
-          ).innerText = `Download Progress: ${parseInt(downloadPercent)}%`;
+          downloadPercent = Math.round(
+            (parsedData.processedSize * 100) / parsedData.totalSize
+          );
+
+          progressHeaderDOM.style.setProperty(
+            "--progress-width",
+            `${downloadPercent}%`
+          );
+          progressHeaderDOM.querySelector(
+            "#progress-percentage"
+          ).innerText = `${downloadPercent}%`;
           worker.postMessage(data);
         }
       } catch (err) {
@@ -140,6 +194,10 @@ function registerPeerConnectionListeners() {
       ["failed", "disconnected"].indexOf(peerConnection.connectionState) !== -1
     ) {
       document.location.href = document.location.origin;
+    } else {
+      currentRoomDOM.style.display = "none";
+      dropAreaDOM.style.display = "none";
+      progressDOM.style.display = "block";
     }
   });
 
@@ -158,8 +216,9 @@ async function hangUp() {
     peerConnection.close();
   }
 
-  document.querySelector("#shareBtn").disabled = false;
+  // document.querySelector("#shareBtn").disabled = false;
   document.querySelector("#currentRoom").innerText = "";
+  currentRoomDOM.style.display = "none";
 
   // Delete room on hangup
   if (roomId) {
@@ -180,8 +239,6 @@ async function hangUp() {
 }
 
 async function createRoom() {
-  document.querySelector("#shareBtn").disabled = true;
-  // document.querySelector("#joinBtn").disabled = true;
   const db = firebase.firestore();
   const roomId = genId(7);
   const roomRef = await db.collection("rooms").doc(roomId);
@@ -202,9 +259,14 @@ async function createRoom() {
   };
   await roomRef.set(roomWithOffer);
   console.log(`New room created with SDP offer. Room ID: ${roomId}`);
+  currentRoomDOM.style.display = "block";
+
+  dropAreaDOM.style.display = "none";
+  const url = `${window.location.origin}/#${roomId}`;
   document.querySelector(
     "#currentRoom"
-  ).innerText = `Your File Share is ready at ${window.location.origin}/#${roomId}`;
+  ).innerHTML = `Your File is ready to be shared at <code>${url}</code> and copied to clipboard`;
+  navigator.clipboard.writeText(url);
 
   roomRef.onSnapshot(async (snapshot) => {
     const data = snapshot.data();
@@ -228,14 +290,13 @@ async function createRoom() {
 }
 
 function joinRoom() {
-  document.querySelector("#shareBtn").disabled = true;
-  // document.querySelector("#joinBtn").disabled = true;
-
   document.querySelector("#confirmJoinBtn").addEventListener(
     "click",
     async () => {
       roomId = document.querySelector("#room-id").value;
       console.log("Join room: ", roomId);
+      currentRoomDOM.style.display = "none";
+
       document.querySelector(
         "#currentRoom"
       ).innerText = `Current room is ${roomId} - You are the callee!`;
@@ -243,7 +304,7 @@ function joinRoom() {
     },
     { once: true }
   );
-  roomDialog.open();
+  // roomDialog.open();
 }
 
 async function joinRoomById(roomId) {

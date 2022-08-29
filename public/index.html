@@ -4,15 +4,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>P2P Drop</title>
-    <link
-      href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css"
-      rel="stylesheet"
-    />
-    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/icon?family=Material+Icons"
-    />
 
     <!-- update the version number as needed -->
     <script defer src="/__/firebase/7.13.1/firebase-app.js"></script>
@@ -23,67 +14,51 @@
     <script defer src="./streamsaver.js"></script>
 
     <script src="index.js" defer></script>
-    <link rel="stylesheet" type="text/css" href="main.css" />
+    <link rel="stylesheet" type="text/css" href="styles.css" />
   </head>
   <body>
-    <h1>Welcome to P2P Drop!</h1>
-    <input type="file" name="localFile" id="localFile" />
-    <button class="mdc-button mdc-button--raised" id="shareBtn">
-      <i class="material-icons mdc-button__icon" aria-hidden="true">share</i>
-      <span class="mdc-button__label">Share</span>
-    </button>
+    <div class="container">
+      <header class="header">
+        <div class="header__logo">
+          <div class="logo">P2P Drop!</div>
+        </div>
+      </header>
+      <div class="content">
+        <div class="index-content framed">
+          <h1 id="hello-there">Hello there!</h1>
+          <p>
+            I am <code>P2P Drop</code>, here to help you share files with your
+            family and friends with no middle man and server involed. I use
+            <code>WebRTC</code> at my core.
+          </p>
+        </div>
+        <div class="posts">
+          <div class="post on-list">
+            <h1 class="post-title" id="post-title">......</h1>
+            <div class="post-meta" id="progress-container">
+              <div class="header">
+                <div class="header__logo progress_header">
+                  <div class="logo" id="progress-percentage">0%</div>
+                </div>
+              </div>
+            </div>
+            <div id="current-room">
+              <span id="currentRoom"></span>
+            </div>
 
-    <!-- <button class="mdc-button mdc-button--raised" id="joinBtn">
-      <i class="material-icons mdc-button__icon" aria-hidden="true">group</i>
-      <span class="mdc-button__label">Join room</span>
-    </button> -->
-    <div>
-      <span id="currentRoom"></span>
-    </div>
-    <div>
-      <span id="progress"></span>
-    </div>
-    <div
-      class="mdc-dialog"
-      id="room-dialog"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="my-dialog-title"
-      aria-describedby="my-dialog-content"
-    >
-      <div class="mdc-dialog__container">
-        <div class="mdc-dialog__surface">
-          <h2 class="mdc-dialog__title" id="my-dialog-title">Join room</h2>
-          <div class="mdc-dialog__content" id="my-dialog-content">
-            Enter ID for room to join:
-            <div class="mdc-text-field">
-              <input type="text" id="room-id" class="mdc-text-field__input" />
-              <label class="mdc-floating-label" for="my-text-field"
-                >Room ID</label
-              >
-              <div class="mdc-line-ripple"></div>
+            <div class="post-cover droparea" id="file-picker-container">
+              Drag and drop file or click here
+              <input type="file" name="localFile" id="localFile" hidden />
+            </div>
+
+            <div class="post-content">
+              I am too young and might be glitchy at times. Please inform my
+              <code><a href="http://vinayp.com">developer</a></code
+              >, so he can fix me.
             </div>
           </div>
-          <footer class="mdc-dialog__actions">
-            <button
-              type="button"
-              class="mdc-button mdc-dialog__button"
-              data-mdc-dialog-action="no"
-            >
-              <span class="mdc-button__label">Cancel</span>
-            </button>
-            <button
-              id="confirmJoinBtn"
-              type="button"
-              class="mdc-button mdc-dialog__button"
-              data-mdc-dialog-action="yes"
-            >
-              <span class="mdc-button__label">Join</span>
-            </button>
-          </footer>
         </div>
       </div>
-      <div class="mdc-dialog__scrim"></div>
     </div>
   </body>
 </html>
