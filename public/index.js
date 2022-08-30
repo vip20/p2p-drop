@@ -136,9 +136,7 @@ function registerPeerConnectionListeners(peerConnection) {
 
   peerConnection.addEventListener("connectionstatechange", () => {
     console.log(`Connection state change: ${peerConnection.connectionState}`);
-    if (
-      ["failed", "disconnected"].indexOf(peerConnection.connectionState) !== -1
-    ) {
+    if (["failed", "closed"].indexOf(peerConnection.connectionState) !== -1) {
       document.location.href = document.location.origin;
     } else {
       currentRoomDOM.style.display = "none";
@@ -407,6 +405,8 @@ async function onSendChannelStateChange() {
       timestampPrev = timestampStart;
       statsInterval = setInterval(displayStats, 500);
       await displayStats(localConnection);
+    } else if (readyState === "closed") {
+      closeDataChannels();
     }
   }
 }
@@ -523,4 +523,3 @@ async function clearFirestore() {
   }
 }
 window.addEventListener("load", init());
-window.onunload = window.onbeforeunload = closeDataChannels();
