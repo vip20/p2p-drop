@@ -1,9 +1,28 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-LYPT0VXSLN"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-LYPT0VXSLN");
+    </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>P2P Drop</title>
+    <script
+      defer
+      src="https://kit.fontawesome.com/d97b87339f.js"
+      crossorigin="anonymous"
+    ></script>
 
     <!-- update the version number as needed -->
     <script defer src="/__/firebase/7.13.1/firebase-app.js"></script>
@@ -41,13 +60,17 @@
                   <div class="logo" id="progress-percentage">0%</div>
                 </div>
                 <div id="bitrate"></div>
-                <div>
-                  <code><a id="download"></a></code>
+                <div class="code">
+                  <a id="download"></a>
                 </div>
               </div>
             </div>
             <div id="current-room">
               <span id="currentRoom"></span>
+            </div>
+
+            <div id="copied-success" class="copied fade">
+              <span>Copied!</span>
             </div>
 
             <div class="post-cover droparea" id="file-picker-container">

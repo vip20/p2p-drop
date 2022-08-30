@@ -23,6 +23,7 @@ let fileReader;
 let roomId;
 let percentage;
 let analytics;
+let file;
 
 const bitrateDiv = document.querySelector("div#bitrate");
 
@@ -69,7 +70,12 @@ async function init() {
 }
 
 function fileEventListeners() {
-  fileInput.addEventListener("change", createRoom);
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files) {
+      file = fileInput.files[0];
+      createRoom();
+    }
+  });
 
   const handleDrop = (e) => {
     if (e.dataTransfer.files) {
@@ -186,7 +192,11 @@ async function createRoom() {
   const url = `${window.location.origin}/#${roomId}`;
   document.querySelector(
     "#currentRoom"
-  ).innerHTML = `Your File is ready to be shared at <code id="myInput" class="url">${url} <img src="./copy.svg" title="Click to Copy" class="copy-icon" onclick="copyText('${url}')"></code>`;
+  ).innerHTML = `Your File is ready to be shared at 
+  <div class="clipboard">
+<input onclick="copyText()" class="copy-input" value="${url}" id="copyClipboard" readonly>
+<button class="copy-btn" id="copyButton" onclick="copyText()"><i class="far fa-copy"></i></button>
+</div>`;
 
   roomRef.onSnapshot(async (snapshot) => {
     const data = snapshot.data();
@@ -207,11 +217,17 @@ async function createRoom() {
     });
   });
 }
-function copyText(text) {
-  navigator.clipboard.writeText(text);
+function copyText() {
+  const copyText = document.getElementById("copyClipboard");
+  const copiedSuccess = document.getElementById("copied-success");
 
-  /* Alert the copied text */
-  alert("URL Copied: " + text);
+  copyText.select();
+  copyText.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(copyText.value);
+  copiedSuccess.classList.toggle("fade");
+  setTimeout(() => {
+    copiedSuccess.classList.toggle("fade");
+  }, 2000);
 }
 
 async function joinRoomById(roomId) {
@@ -256,54 +272,71 @@ async function joinRoomById(roomId) {
 }
 
 function sendData() {
-  const file = fileInput.files[0];
-  fileName = file.name;
-  fileSize = file.size;
-  console.log(
-    `File is ${[fileName, fileSize, file.type, file.lastModified].join(" ")}`
-  );
+  if (file) {
+    fileName = file.name;
+    fileSize = file.size;
+    console.log(
+      `File is ${[fileName, fileSize, file.type, file.lastModified].join(" ")}`
+    );
 
-  // Handle 0 size files.
-  dropAreaDOM.textContent = "";
-  downloadAnchor.textContent = "";
-  if (fileSize === 0) {
-    bitrateDiv.innerHTML = "";
-    dropAreaDOM.textContent = "File is empty, please select a non-empty file";
-    closeDataChannels();
-    return;
-  }
-  // sendProgress.max = fileSize;
-  // receiveProgress.max = fileSize;
-  const chunkSize = 16384;
-  fileReader = new FileReader();
-  let offset = 0;
-  sendChannel.send(
-    JSON.stringify({ name: fileName, size: fileSize, status: "init" })
-  );
-  fileReader.addEventListener("error", (error) =>
-    console.error("Error reading file:", error)
-  );
-  fileReader.addEventListener("abort", (event) =>
-    console.log("File reading aborted:", event)
-  );
-  fileReader.addEventListener("load", (e) => {
-    console.log("FileRead.onload ", e);
-    sendChannel.send(e.target.result);
-    offset += e.target.result.byteLength;
-    // sendProgress.value = offset;
-
-    const percent = Math.round((offset * 100) / fileSize);
-    updateProgressBar(percent);
-    if (offset < fileSize) {
-      readSlice(offset);
+    // Handle 0 size files.
+    dropAreaDOM.textContent = "";
+    downloadAnchor.textContent = "";
+    if (fileSize === 0) {
+      bitrateDiv.innerHTML = "";
+      dropAreaDOM.textContent = "File is empty, please select a non-empty file";
+      closeDataChannels();
+      return;
     }
-  });
-  const readSlice = (o) => {
-    console.log("readSlice ", o);
-    const slice = file.slice(offset, o + chunkSize);
-    fileReader.readAsArrayBuffer(slice);
-  };
-  readSlice(0);
+    const chunkSize = 16384;
+    sendChannel.bufferedAmountLowThreshold = 65535;
+    fileReader = new FileReader();
+    let offset = 0;
+    sendChannel.send(
+      JSON.stringify({ name: fileName, size: fileSize, status: "init" })
+    );
+    fileReader.addEventListener("error", (error) =>
+      console.error("Error reading file:", error)
+    );
+    fileReader.addEventListener("abort", (event) =>
+      console.log("File reading aborted:", event)
+    );
+
+    // file.arrayBuffer().then((buffer) => queueManageSender(buffer));
+
+    fileReader.addEventListener("load", (e) => {
+      function queueManageSender(buffer) {
+        while (buffer.byteLength) {
+          if (
+            sendChannel.bufferedAmount > sendChannel.bufferedAmountLowThreshold
+          ) {
+            sendChannel.onbufferedamountlow = () => {
+              sendChannel.onbufferedamountlow = null;
+              queueManageSender(buffer);
+            };
+            return;
+          }
+          const chunk = buffer.slice(0, chunkSize);
+          buffer = buffer.slice(chunkSize, buffer.byteLength);
+          sendChannel.send(chunk);
+        }
+      }
+      queueManageSender(e.target.result);
+      offset += e.target.result.byteLength;
+      // sendProgress.value = offset;
+      const percent = Math.round((offset * 100) / fileSize);
+      updateProgressBar(percent);
+      if (offset < fileSize) {
+        readSlice(offset);
+      }
+    });
+    const readSlice = (o) => {
+      console.log("readSlice ", o);
+      const slice = file.slice(offset, o + chunkSize);
+      fileReader.readAsArrayBuffer(slice);
+    };
+    readSlice(0);
+  }
 }
 
 function receiveChannelCallback(event) {
