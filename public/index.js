@@ -22,6 +22,7 @@ let receiveChannel;
 let fileReader;
 let roomId;
 let percentage;
+let analytics;
 
 const bitrateDiv = document.querySelector("div#bitrate");
 
@@ -61,6 +62,11 @@ async function init() {
     receipent = USER.sender;
     titleDOM.innerText = "Upload!";
     dropAreaDOM.style.display = "block";
+  }
+
+  if (firebaseConfig && firebaseConfig.appId) {
+    analytics = firebase.analytics();
+    analytics.logEvent(`Initialised`, { userType: receipent });
   }
 }
 
@@ -462,29 +468,28 @@ async function closeDataChannels() {
   if (localConnection) {
     localConnection.close();
     localConnection = null;
-
-    if (roomId) {
-      const db = firebase.firestore();
-      const roomRef = db.collection("rooms").doc(roomId);
-      const calleeCandidates = await roomRef
-        .collection("calleeCandidates")
-        .get();
-      calleeCandidates.forEach(async (candidate) => {
-        await candidate.delete();
-      });
-      const callerCandidates = await roomRef
-        .collection("callerCandidates")
-        .get();
-      callerCandidates.forEach(async (candidate) => {
-        await candidate.delete();
-      });
-      await roomRef.delete();
-    }
   }
   if (remoteConnection) {
     remoteConnection.close();
     remoteConnection = null;
   }
-}
 
-init();
+  await clearFirestore();
+}
+async function clearFirestore() {
+  if (roomId) {
+    const db = firebase.firestore();
+    const roomRef = db.collection("rooms").doc(roomId);
+    const calleeCandidates = await roomRef.collection("calleeCandidates").get();
+    calleeCandidates.forEach(async (candidate) => {
+      await candidate.delete();
+    });
+    const callerCandidates = await roomRef.collection("callerCandidates").get();
+    callerCandidates.forEach(async (candidate) => {
+      await candidate.delete();
+    });
+    await roomRef.delete();
+  }
+}
+window.addEventListener("load", init());
+window.onunload = window.onbeforeunload = closeDataChannels();
