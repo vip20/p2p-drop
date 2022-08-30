@@ -64,10 +64,8 @@ async function init() {
     dropAreaDOM.style.display = "block";
   }
 
-  if (firebaseConfig && firebaseConfig.appId) {
-    analytics = firebase.analytics();
-    analytics.logEvent(`Initialised`, { userType: receipent });
-  }
+  analytics = firebase.analytics();
+  analytics.logEvent(`Initialised`, { userType: receipent });
 }
 
 function fileEventListeners() {
