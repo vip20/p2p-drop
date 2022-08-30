@@ -1,6 +1,6 @@
 let array = [];
 self.addEventListener("message", (event) => {
-  if (array && array.length > 0 && event.data === "download") {
+  if (event.data === "download") {
     const blob = new Blob(array);
     self.postMessage(blob);
     array = [];

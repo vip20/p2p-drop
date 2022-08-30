@@ -1551,5 +1551,9 @@ div#progressbar * {
 #progress-container {
   display: none;
 }
+#progress-percentage {
+  width: 47px;
+  padding: 5px;
+}
 
 /* Theme https://hugo-terminal.vercel.app/ */
