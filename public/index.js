@@ -182,8 +182,7 @@ async function createRoom() {
   const url = `${window.location.origin}/#${roomId}`;
   document.querySelector(
     "#currentRoom"
-  ).innerHTML = `Your File is ready to be shared at <code>${url}</code> and copied to clipboard`;
-  navigator.clipboard.writeText(url);
+  ).innerHTML = `Your File is ready to be shared at <code id="myInput" class="url">${url} <img src="./copy.svg" title="Click to Copy" class="copy-icon" onclick="copyText('${url}')"></code>`;
 
   roomRef.onSnapshot(async (snapshot) => {
     const data = snapshot.data();
@@ -203,6 +202,12 @@ async function createRoom() {
       }
     });
   });
+}
+function copyText(text) {
+  navigator.clipboard.writeText(text);
+
+  /* Alert the copied text */
+  alert("URL Copied: " + text);
 }
 
 async function joinRoomById(roomId) {

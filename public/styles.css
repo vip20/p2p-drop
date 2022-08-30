@@ -1555,5 +1555,19 @@ div#progressbar * {
   width: 47px;
   padding: 5px;
 }
+.url {
+  position: relative;
+}
+.copy-icon {
+  height: 20px;
+  fill: var(--accent);
+  color: var(--accent);
+  background: var(--accent);
+  border-radius: 2px;
+  display: inline;
+  right: -10px;
+  position: absolute;
+  top: -10px;
+}
 
 /* Theme https://hugo-terminal.vercel.app/ */
