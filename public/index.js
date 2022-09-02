@@ -34,6 +34,7 @@ const currentRoomDOM = document.querySelector("#current-room");
 const dropAreaDOM = document.querySelector("#file-picker-container");
 const downloadAnchor = document.querySelector("a#download");
 const fileInput = document.querySelector("#localFile");
+const fileDetails = document.querySelector("div#filedetails");
 
 let receiveBuffer = [];
 let receivedSize = 0;
@@ -45,11 +46,13 @@ let statsInterval = null;
 let bitrateMax = 0;
 
 let fileSize;
+let fileType;
 let fileName;
 
 async function init() {
   progressDOM.style.display = "none";
   currentRoomDOM.style.display = "none";
+  fileDetails.style.display = "none";
 
   fileEventListeners();
 
@@ -142,6 +145,7 @@ function registerPeerConnectionListeners(peerConnection) {
       currentRoomDOM.style.display = "none";
       dropAreaDOM.style.display = "none";
       progressDOM.style.display = "block";
+      fileDetails.style.display = "block";
     }
   });
 
@@ -273,9 +277,14 @@ function sendData() {
   if (file) {
     fileName = file.name;
     fileSize = file.size;
+    fileType = file.type;
     console.log(
       `File is ${[fileName, fileSize, file.type, file.lastModified].join(" ")}`
     );
+
+    fileDetails.innerHTML = `<b>File Info: </b>${fileName} (${readableBytes(
+      fileSize
+    )})`;
 
     // Handle 0 size files.
     dropAreaDOM.textContent = "";
@@ -291,7 +300,12 @@ function sendData() {
     fileReader = new FileReader();
     let offset = 0;
     sendChannel.send(
-      JSON.stringify({ name: fileName, size: fileSize, status: "init" })
+      JSON.stringify({
+        name: fileName,
+        size: fileSize,
+        status: "init",
+        type: fileType,
+      })
     );
     fileReader.addEventListener("error", (error) =>
       console.error("Error reading file:", error)
@@ -317,19 +331,19 @@ function sendData() {
           const chunk = buffer.slice(0, chunkSize);
           buffer = buffer.slice(chunkSize, buffer.byteLength);
           sendChannel.send(chunk);
+          offset += e.target.result.byteLength;
+          // sendProgress.value = offset;
+          const percent = Math.round((offset * 100) / fileSize);
+          updateProgressBar(percent);
+          if (offset < fileSize) {
+            readSlice(offset);
+          }
         }
       }
       queueManageSender(e.target.result);
-      offset += e.target.result.byteLength;
-      // sendProgress.value = offset;
-      const percent = Math.round((offset * 100) / fileSize);
-      updateProgressBar(percent);
-      if (offset < fileSize) {
-        readSlice(offset);
-      }
     });
     const readSlice = (o) => {
-      console.log("readSlice ", o);
+      console.log("readSlice ", chunkSize);
       const slice = file.slice(offset, o + chunkSize);
       fileReader.readAsArrayBuffer(slice);
     };
@@ -438,6 +452,10 @@ function onReceiveMessageCallback(event) {
     if (parsedData.status === "init") {
       fileSize = parsedData.size;
       fileName = parsedData.name;
+
+      fileDetails.innerText = `<b>File Info: </b>${fileName} (${readableBytes(
+        fileSize
+      )})`;
       return;
     }
   } catch (error) {}
