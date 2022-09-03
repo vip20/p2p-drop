@@ -73,17 +73,17 @@ async function init() {
 }
 
 function fileEventListeners() {
-  fileInput.addEventListener("change", () => {
+  fileInput.addEventListener("change", async () => {
     if (fileInput.files) {
       file = fileInput.files[0];
-      createRoom();
+      await createRoom();
     }
   });
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     if (e.dataTransfer.files) {
       file = e.dataTransfer.files[0];
-      createRoom();
+      await createRoom();
     }
   };
   const droparea = document.querySelector(".droparea");
@@ -139,8 +139,8 @@ function registerPeerConnectionListeners(peerConnection) {
 
   peerConnection.addEventListener("connectionstatechange", () => {
     console.log(`Connection state change: ${peerConnection.connectionState}`);
-    if (["failed", "closed"].indexOf(peerConnection.connectionState) !== -1) {
-      document.location.href = document.location.origin;
+    if (["closed"].indexOf(peerConnection.connectionState) !== -1) {
+      // closeDataChannels();
     } else {
       currentRoomDOM.style.display = "none";
       dropAreaDOM.style.display = "none";
@@ -273,7 +273,7 @@ async function joinRoomById(roomId) {
   }
 }
 
-function sendData() {
+async function sendData() {
   if (file) {
     fileName = file.name;
     fileSize = file.size;
@@ -292,11 +292,11 @@ function sendData() {
     if (fileSize === 0) {
       bitrateDiv.innerHTML = "";
       dropAreaDOM.textContent = "File is empty, please select a non-empty file";
-      closeDataChannels();
+      await closeDataChannels();
       return;
     }
-    const chunkSize = 16384;
-    sendChannel.bufferedAmountLowThreshold = 65535;
+    const chunkSize = MAXIMUM_MESSAGE_SIZE;
+    sendChannel.bufferedAmountLowThreshold = MAXIMUM_MESSAGE_SIZE;
     fileReader = new FileReader();
     let offset = 0;
     sendChannel.send(
@@ -329,12 +329,14 @@ function sendData() {
             return;
           }
           const chunk = buffer.slice(0, chunkSize);
-          buffer = buffer.slice(chunkSize, buffer.byteLength);
+          offset += buffer.byteLength;
           sendChannel.send(chunk);
-          offset += e.target.result.byteLength;
+          buffer = buffer.slice(chunkSize, buffer.byteLength);
           // sendProgress.value = offset;
-          const percent = Math.round((offset * 100) / fileSize);
+          const percent = ((offset * 100) / fileSize).toFixed(2);
           updateProgressBar(percent);
+
+          console.log(`offset:: ${offset}, filesize:: ${fileSize}`);
           if (offset < fileSize) {
             readSlice(offset);
           }
@@ -342,8 +344,9 @@ function sendData() {
       }
       queueManageSender(e.target.result);
     });
+    //Browser doesnt allow files larger than 2GB hence creating chunks of 10MB
     const readSlice = (o) => {
-      console.log("readSlice ", chunkSize);
+      console.log("readSlice ", o);
       const slice = file.slice(offset, o + chunkSize);
       fileReader.readAsArrayBuffer(slice);
     };
@@ -386,9 +389,9 @@ async function displayStats(peerConnection) {
       const bytesNow = activeCandidatePair.bytesReceived;
       const bitrate = Math.round(
         ((bytesNow - bytesPrev) * 8) /
-          ((activeCandidatePair.timestamp - timestampPrev) * 1000)
+          (activeCandidatePair.timestamp - timestampPrev)
       );
-      bitrateDiv.innerHTML = `<strong>Current Bitrate:</strong> ${bitrate} mbits/sec`;
+      bitrateDiv.innerHTML = `<strong>Current Bitrate:</strong> ${bitrate} kbits/sec`;
       timestampPrev = activeCandidatePair.timestamp;
       bytesPrev = bytesNow;
       if (bitrate > bitrateMax) {
@@ -417,10 +420,13 @@ async function onSendChannelStateChange() {
 
       timestampStart = new Date().getTime();
       timestampPrev = timestampStart;
-      statsInterval = setInterval(displayStats, 500);
+      setInterval(() => {
+        displayStats(localConnection);
+      }, 500);
       await displayStats(localConnection);
     } else if (readyState === "closed") {
-      closeDataChannels();
+      await closeDataChannels();
+      document.location.href = document.location.origin;
     }
   }
 }
@@ -440,8 +446,13 @@ async function onReceiveChannelStateChange() {
     if (readyState === "open") {
       timestampStart = new Date().getTime();
       timestampPrev = timestampStart;
-      statsInterval = setInterval(displayStats, 500);
+      statsInterval = setInterval(() => {
+        displayStats(remoteConnection);
+      }, 500);
       await displayStats(remoteConnection);
+    } else {
+      await closeDataChannels();
+      document.location.href = document.location.origin;
     }
   }
 }
@@ -463,7 +474,7 @@ function onReceiveMessageCallback(event) {
   // receiveBuffer.push(event.data);
   worker.postMessage(event.data);
   receivedSize += event.data.byteLength;
-  const percent = Math.round((receivedSize * 100) / fileSize);
+  const percent = ((receivedSize * 100) / fileSize).toFixed(2);
   updateProgressBar(percent);
   // receiveProgress.value = receivedSize;
 
@@ -483,9 +494,9 @@ function onReceiveMessageCallback(event) {
       downloadAnchor.style.display = "block";
 
       const bitrate = Math.round(
-        (receivedSize * 8) / (1000 * (new Date().getTime() - timestampStart))
+        (receivedSize * 8) / (new Date().getTime() - timestampStart)
       );
-      bitrateDiv.innerHTML = `<strong>Average Bitrate:</strong> ${bitrate} mbits/sec (max: ${bitrateMax} mbits/sec)`;
+      bitrateDiv.innerHTML = `<strong>Average Bitrate:</strong> ${bitrate} kbits/sec (max: ${bitrateMax} kbits/sec)`;
 
       if (statsInterval) {
         clearInterval(statsInterval);
@@ -540,4 +551,7 @@ async function clearFirestore() {
     await roomRef.delete();
   }
 }
+window.addEventListener("beforeunload", async () => {
+  await closeDataChannels();
+});
 window.addEventListener("load", init());

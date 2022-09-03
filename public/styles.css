@@ -1553,7 +1553,7 @@ div#progressbar * {
   display: none;
 }
 #progress-percentage {
-  width: 47px;
+  width: 65px;
   padding: 5px;
 }
 .url {
