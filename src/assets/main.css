@@ -1,3 +1,39 @@
+@import "./base.css";
+
+#app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+
+  font-weight: normal;
+}
+
+a,
+.green {
+  text-decoration: none;
+  color: hsla(160, 100%, 37%, 1);
+  transition: 0.4s;
+}
+
+@media (hover: hover) {
+  a:hover {
+    background-color: hsla(160, 100%, 37%, 0.2);
+  }
+}
+
+@media (min-width: 1024px) {
+  body {
+    display: flex;
+    place-items: center;
+  }
+
+  #app {
+    /* display: grid;
+    grid-template-columns: 1fr 1fr; */
+    padding: 0 2rem;
+  }
+}
+
 :root {
   --accent: #ffa86a;
   --background: rgb(34, 33, 41);
@@ -1543,17 +1579,17 @@ div#progressbar * {
 .active-border {
   box-shadow: 0 0 45px 1px var(--accent) !important;
 }
-.progress_header {
+/* .progress_header {
   --progress-width: 0%;
-}
+} */
 .progress_header::after {
   width: var(--progress-width) !important;
 }
-#progress-container {
+/* #progress-container {
   display: none;
-}
+} */
 #progress-percentage {
-  width: 65px;
+  width: 75px;
   padding: 5px;
 }
 .url {
